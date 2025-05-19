@@ -23,6 +23,7 @@ QRU\_Calorimetry\_Optimization/
 ├── data/                    # Dataset files (preprocessed calorimeter data)
 ├── Hyperparameters_tuning/  # For each hyperparameters: models, training, and analysis
 ├── Global_opti/             # Global optimisation: Bayesian and HyperBand
+├── Theory/                  # Theory experiments
 ├── Optimizing Hyper...      # Paper PDF and related documentation
 ├── requirements.txt         # Dependencies
 └── README.md                # This file
