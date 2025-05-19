@@ -1,2 +1,123 @@
-# QRU_Calorimetry_Optimization
-Codebase for the paper "Optimizing Hyperparameters for Quantum Data Re-Uploaders in Calorimetric Particle Identification". This repo contains the QRU model, training pipelines, Fourier analysis, and hyperparameter optimization scripts.
+### 📄 `README.md`
+
+# Optimizing Hyperparameters for Quantum Data Re-Uploaders in Calorimetric Particle Identification
+
+This repository accompanies the research article:
+
+**Léa Cassé**, **Bernhard Pfahringer**, **Albert Bifet**, and **Frédéric Magniette**  
+_"Optimizing Hyperparameters for Quantum Data Re-Uploaders in Calorimetric Particle Identification"_
+
+---
+
+## 🧠 Overview
+
+This project explores the expressivity and performance of single-qubit **Quantum Re-uploading Units (QRUs)** for classifying particles in a simulated high-granularity calorimeter dataset.
+
+We study the influence of architectural and training hyperparameters on model accuracy, expressivity (via Fourier analysis), and computational cost. The study also includes global hyperparameter optimization using **Bayesian Optimization** and **HyperBand**.
+
+---
+
+## 📦 Project Structure
+
+```
+
+QRU\_Calorimetry\_Optimization/
+├── data/                  # Dataset files (preprocessed calorimeter data)
+├── src/                   # Source code: models, training, and analysis
+│   ├── train\_qru.py
+│   ├── fourier\_analysis.py
+│   └── hyperopt.py
+├── results/               # Saved figures, logs, and metrics
+├── docs/                  # Paper PDF and related documentation
+├── requirements.txt       # Dependencies
+└── README.md              # This file
+
+````
+
+---
+
+## 📊 Dataset
+
+We use a subset of the **D2 calorimetry simulation dataset** (Becheva et al., 2024), which models the response of a CMS-like detector to single particles. For this study, we selected:
+
+- **Three classes**: electrons, pions, and muons  
+- **Three features**: total ECAL energy, shower length, HCAL energy std deviation
+
+---
+
+## 🧪 How to Use
+
+### 1. Install requirements
+
+```bash
+pip install -r requirements.txt
+````
+
+### 2. Train a QRU model
+
+```bash
+python src/train_qru.py
+```
+
+### 3. Plot Fourier spectrum
+
+```bash
+python src/fourier_analysis.py
+```
+
+### 4. Run Bayesian optimization
+
+```bash
+python src/hyperopt.py
+```
+
+---
+
+## ⚙️ Key Features
+
+* **Single-qubit QRU** with re-uploaded classical data via angle rotations
+* **Comparative Fourier expressivity** with VQC baselines
+* **Systematic tuning** of:
+
+  * Circuit depth
+  * Number of parameters per input
+  * Rotation gates
+  * Normalization ranges
+  * Batch size, optimizer, loss function, learning rate
+* **Hyperparameter optimization** using:
+
+  * Bayesian optimization (scikit-optimize)
+  * HyperBand + fANOVA priors
+
+---
+
+## ✅ Main Results
+
+| Metric                | Value        |
+| --------------------- | ------------ |
+| Best test accuracy    | 0.985        |
+| Optimal circuit       | Rx – Ry – Rx |
+| Optimal depth         | 4 to 5       |
+| Optimal learning rate | 5e-4         |
+| Best optimizer        | Adam         |
+| Best loss function    | L2           |
+
+---
+
+## 📚 References
+
+* Pérez-Salinas et al., *Data re-uploading for a universal quantum classifier*, 2019
+* Barthe & Pérez-Salinas, *Gradients and frequency profiles of quantum re-uploading models*, 2023
+* Becheva et al., *High granularity calorimetry D2 dataset*, 2024
+* Cerezo et al., *Variational quantum algorithms*, 2021
+
+---
+
+## 📄 License
+
+This code is released under the MIT License.
+
+---
+
+For any questions or collaboration, feel free to contact:
+📧 casse.lea@gmail.com
