@@ -41,31 +41,11 @@ We use a subset of the **D2 calorimetry simulation dataset** (Becheva et al., 20
 
 ---
 
-## 🧪 How to Use
-
-### 1. Install requirements
+## 🧪 Install requirements
 
 ```bash
 pip install -r requirements.txt
 ````
-
-### 2. Train a QRU model
-
-```bash
-python src/train_qru.py
-```
-
-### 3. Plot Fourier spectrum
-
-```bash
-python src/fourier_analysis.py
-```
-
-### 4. Run Bayesian optimization
-
-```bash
-python src/hyperopt.py
-```
 
 ---
 
