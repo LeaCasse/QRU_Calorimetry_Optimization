@@ -22,15 +22,12 @@ We study the influence of architectural and training hyperparameters on model ac
 ```
 
 QRU\_Calorimetry\_Optimization/
-├── data/                  # Dataset files (preprocessed calorimeter data)
-├── src/                   # Source code: models, training, and analysis
-│   ├── train\_qru.py
-│   ├── fourier\_analysis.py
-│   └── hyperopt.py
-├── results/               # Saved figures, logs, and metrics
-├── docs/                  # Paper PDF and related documentation
-├── requirements.txt       # Dependencies
-└── README.md              # This file
+├── data/                    # Dataset files (preprocessed calorimeter data)
+├── Hyperparameters_tuning/  # For each hyperparameters: models, training, and analysis
+├── Global_opti/             # Global optimisation: Bayesian and HyperBand
+├── docs/                    # Paper PDF and related documentation
+├── requirements.txt         # Dependencies
+└── README.md                # This file
 
 ````
 
