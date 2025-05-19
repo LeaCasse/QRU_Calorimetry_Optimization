@@ -1,0 +1,2 @@
+CPU Trainability: 1.328833
+GPU Trainability: 0.891747

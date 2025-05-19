@@ -1,0 +1,2 @@
+CPU Execution time: 2 days, 16 hours, 25 minutes, 11.1019 seconds
+GPU Execution time: 10 days, 20 hours, 58 minutes, 42.4485 seconds

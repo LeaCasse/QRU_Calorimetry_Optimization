@@ -1,0 +1,49 @@
+Opt Freq: 1
+Final Mean Loss: 0.031073
+Final Mean Train Accuracy: 0.980400
+Final Mean Test Accuracy: 0.979823
+Trainability: 0.066034
+Execution Time: 259282.3022 seconds
+
+Opt Freq: 5
+Final Mean Loss: 0.035432
+Final Mean Train Accuracy: 0.978040
+Final Mean Test Accuracy: 0.977146
+Trainability: 0.102783
+Execution Time: 256280.9431 seconds
+
+Opt Freq: 20
+Final Mean Loss: 0.043265
+Final Mean Train Accuracy: 0.972585
+Final Mean Test Accuracy: 0.972939
+Trainability: 0.192425
+Execution Time: 236998.8451 seconds
+
+Opt Freq: 100
+Final Mean Loss: 1.159009
+Final Mean Train Accuracy: 0.298065
+Final Mean Test Accuracy: 0.296847
+Trainability: 1.694949
+Execution Time: 232299.1864 seconds
+
+Opt Freq: thrice
+Final Mean Loss: 1.162063
+Final Mean Train Accuracy: 0.296420
+Final Mean Test Accuracy: 0.294961
+Trainability: 1.695045
+Execution Time: 232954.0273 seconds
+
+Opt Freq: twice
+Final Mean Loss: 1.158798
+Final Mean Train Accuracy: 0.297995
+Final Mean Test Accuracy: 0.295238
+Trainability: 1.694917
+Execution Time: 241399.2697 seconds
+
+Opt Freq: once
+Final Mean Loss: 1.149224
+Final Mean Train Accuracy: 0.296510
+Final Mean Test Accuracy: 0.293320
+Trainability: 1.695377
+Execution Time: 234177.0203 seconds
+

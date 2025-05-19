@@ -1,0 +1,4 @@
+circuit,trainability,execution_time,final_loss_ma,final_train_acc_ma,final_test_acc_ma
+gamma_1,1.6216727510984787,"Execution time: 1 days, 14 hours, 26 minutes, 41.7271 seconds",0.03887768099884435,0.9808800000000003,0.9774650000000005
+gamma_2,3.1244713044717067,"Execution time: 1 days, 15 hours, 57 minutes, 10.7769 seconds",0.06737844127919118,0.9592650000000003,0.94893
+gamma_3,4.155945310520862,"Execution time: 1 days, 19 hours, 15 minutes, 14.8976 seconds",0.121885409179291,0.9018300000000001,0.8826179999999996
