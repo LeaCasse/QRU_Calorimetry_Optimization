@@ -24,6 +24,7 @@ QRU\_Calorimetry\_Optimization/
 ├── Hyperparameters_tuning/  # For each hyperparameters: models, training, and analysis
 ├── Global_opti/             # Global optimisation: Bayesian and HyperBand
 ├── Theory/                  # Theory experiments
+├── Comparison_QRU_VQC_MLP   # Coparison between those three models with same trainable parameters budget
 ├── Optimizing Hyper...      # Paper PDF and related documentation
 ├── requirements.txt         # Dependencies
 └── README.md                # This file
