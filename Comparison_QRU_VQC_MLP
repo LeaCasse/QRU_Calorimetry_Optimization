@@ -1,1 +1,337 @@
+# -*- coding: utf-8 -*-
+"""
+Comparaison QRU(1q) vs VQC(3 qubits) vs MLP à budget de paramètres (corps) égal
+- Protocole du script initial: loss L2, seuils {-0.33, 0, 0.33}, no-batch (1 échantillon -> 1 update),
+  logging toutes les 20 itérations, évaluation test sur 100 premiers items.
+- LR fixé à 5e-6 (Adam), pas de multi-seed, pas de formats multiples.
+- VQC (3 qubits): encode 1x les 3 features (RY sur q0,q1,q2), couches variationnelles (RX,RY,RZ) trainables,
+  couches d'entanglement (anneau CNOT), agrégation finale CNOT(1->0) & CNOT(2->0), mesure sur qubit 0.
+- Budget égal sur le "corps": on fixe une profondeur commune L_BODY -> P_QRU = 3*D*L_BODY et P_VQC = 3*Q*L_BODY.
+- MLP: P = 5*h + 1 (y compris la tête fc2), h choisi pour matcher ~P.
+- Sorties: logs + CSV (identiques au style original).
+"""
 
+import os
+import time
+import numpy as np
+import torch
+import torch.nn as nn
+import pennylane as qml
+import pandas as pd
+
+# ======================
+# ====== CONFIG =========
+# ======================
+
+EXP_NAME = "cmp_equal_params_L2_nobatch_fixedLR_VQC3q"
+os.makedirs(EXP_NAME, exist_ok=True)
+
+# Chemins des loaders (adapte si besoin)
+TRAIN_LOADER_PATH = "loaders/qml_essai_train_loader.pth"
+TEST_LOADER_PATH  = "loaders/qml_essai_test_loader.pth"
+
+LOG_FILE = os.path.join(EXP_NAME, "training_log.txt")
+CSV_FILE = os.path.join(EXP_NAME, "raw_output.csv")
+
+# Hyperparamètres globaux
+LR = 5e-5          # fixé
+NB_EPOCH = 10        # comme l'original
+BATCH_STAT = 20      # logging toutes les 20 itérations
+TEST_STOP = 100      # éval test sur 100 premiers items
+
+# VQC: 3 qubits fixes selon la demande
+Q_VQC = 3
+
+# Profondeur commune du "corps" (choisis L_BODY ; P sera alors ~ 9*L_BODY pour QRU et VQC)
+L_BODY = 10  # ex: 10 -> P_QRU = 3*D*10, P_VQC = 3*3*10 = 90
+
+# ======================
+# ====== OUTILS =========
+# ======================
+
+def L2(yh, gt):
+    return (yh - gt) ** 2
+
+def classif_scalar(yh):
+    # yh: scalaire numpy
+    if yh < -0.33:
+        return -1.0
+    if yh > 0.33:
+        return 1.0
+    return 0.0
+
+def moving_average(data, window_size):
+    if len(data) < window_size:
+        return np.array(data, dtype=float)
+    return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+
+def final_moving_average(data, final_window_size):
+    if len(data) == 0:
+        return float('nan')
+    take = min(final_window_size, len(data))
+    return float(np.mean(data[-take:]))
+
+# ======================
+# ====== DONNÉES =======
+# ======================
+
+train_loader = torch.load(TRAIN_LOADER_PATH)
+test_loader  = torch.load(TEST_LOADER_PATH)
+
+# Détermine D (nb features)
+for x0, _ in train_loader:
+    D = x0.shape[1]  # x: (1,D)
+    break
+
+# ======================
+# ====== QRU (1q) ======
+# ======================
+
+dev_qru = qml.device("default.qubit", wires=1)
+
+@qml.qnode(dev_qru, interface="torch")
+def qru_qnode(params_flat, x, L, D):
+    # Pattern du script initial: par couche i et feature j -> RX, RY(param * x_j), RX
+    for i in range(L):
+        for j in range(D):
+            base = j*3 + i*D*3
+            qml.RX(params_flat[base + 0], wires=0)
+            qml.RY(params_flat[base + 1] * x[0][j].item(), wires=0)
+            qml.RX(params_flat[base + 2], wires=0)
+    return qml.expval(qml.PauliZ(0))  # scalaire [-1,1]
+
+def qru_param_count(L, D):
+    # Corps uniquement: 3*D par couche
+    return 3*D*L
+
+def qru_make_params(L, D):
+    nb = 3*D*L
+    # Comme l'original, init à 0.5
+    params = torch.full((nb,), 0.5, dtype=torch.float64, requires_grad=True)
+    return params
+
+def qru_forward(params, x, L, D):
+    return qru_qnode(params, x, L, D)
+
+# ======================
+# ====== VQC (3q) ======
+# ======================
+
+def make_ring_3():
+    # Anneau: 0->1, 1->2, 2->0
+    return [(0,1), (1,2), (2,0)]
+
+def vqc_param_count(L, Q=3):
+    # Corps variationnel: par couche, par qubit: RX, RY, RZ -> 3 params * Q
+    return 3*Q*L
+
+def vqc_make_params(L, Q=3):
+    # params_body: (L, Q, 3) avec RX, RY, RZ (tous trainables, aucun multiplicateur par x)
+    body = torch.full((L, Q, 3), 0.5, dtype=torch.float64, requires_grad=True)
+    return body
+
+def build_vqc3_qnode():
+    dev = qml.device("default.qubit", wires=3)
+    ring = make_ring_3()
+
+    @qml.qnode(dev, interface="torch")
+    def _qnode(params_body, x, L, D):
+        # 1) Encodage une seule fois des 3 features: RY(x0) sur q0, RY(x1) sur q1, RY(x2) sur q2
+        # Si D<3, on boucle modulo D
+        for q in range(3):
+            feat = q % D
+            qml.RY(x[0][feat].item(), wires=q)
+
+        # 2) L couches variationnelles (trainables) puis entanglement
+        for i in range(L):
+            # Unitaries locales (trainables), aucun facteur x ici
+            for q in range(3):
+                qml.RX(params_body[i, q, 0], wires=q)
+                qml.RY(params_body[i, q, 1], wires=q)
+                qml.RZ(params_body[i, q, 2], wires=q)
+            # Entanglement ring CNOT
+            for a, b in ring:
+                qml.CNOT(wires=[a, b])
+
+        # 3) Agrégation finale vers qubit 0
+        qml.CNOT(wires=[1, 0])
+        qml.CNOT(wires=[2, 0])
+
+        # 4) Mesure sur qubit 0
+        return qml.expval(qml.PauliZ(0))
+
+    return _qnode
+
+# ======================
+# ====== MLP ===========
+# ======================
+
+def mlp_param_count(h):
+    # 3->h->1 : (3+1)h + (h+1)*1 = 5h + 1  (y compris la tête fc2)
+    return 5*h + 1
+
+def mlp_h_for_body_budget(P_target):
+    # Choisit h tel que 5h+1 ~= P_target
+    return max(1, (P_target - 1) // 5)
+
+class MLPScalar(nn.Module):
+    def __init__(self, h):
+        super().__init__()
+        self.fc1 = nn.Linear(3, h, bias=True).double()
+        self.fc2 = nn.Linear(h, 1, bias=True).double()
+    def forward(self, x):  # x: (1,D)
+        z = torch.relu(self.fc1(x[0].double()))
+        out = self.fc2(z)  # (1,)
+        return torch.tanh(out)[0]  # scalaire in [-1,1]
+
+# ======================
+# === ENTRAÎNEMENT =====
+# ======================
+
+def run_training_like_original(
+    model_name, forward_fn, params_list, train_loader, test_loader, nb_epoch, lr, log_path, csv_path
+):
+    # Optimiseur (Adam) sur les tensors entraînables fournis
+    trainable = [p for p in params_list if isinstance(p, torch.Tensor) and p.requires_grad]
+    opt = torch.optim.Adam(trainable, lr=lr)
+
+    # Préparation fichiers
+    header_needed = not os.path.exists(csv_path) or (os.path.getsize(csv_path) == 0)
+    with open(log_path, "a", encoding="utf-8") as flog, open(csv_path, "a", encoding="utf-8") as fcsv:
+        if header_needed:
+            fcsv.write("Model,Epoch,BatchCount,Loss,TrainAcc,TestAcc\n")
+
+        loss_hist, acc_hist, test_acc_hist = [], [], []
+        epoch, bcnt, bloss, bacc, cnt = 0, 0, 0.0, 0, 0
+
+        start_time = time.time()
+        while epoch < nb_epoch:
+            for x_train, y_train in train_loader:
+                opt.zero_grad()
+
+                # Forward -> scalaire torch
+                y_hat = forward_fn(x_train)
+
+                # Classification "seuils"
+                y_hat_np = float(y_hat.detach().cpu().numpy())
+                cl_pred = classif_scalar(y_hat_np)
+                cl_gt   = float(y_train.numpy()[0][0])
+
+                # Loss L2 (scalaire torch vs scalaire torch)
+                loss = L2(y_hat, y_train.double()[0][0])
+                loss.backward()
+                opt.step()
+
+                # Accumule pour logging
+                bloss += float(loss.detach().cpu().numpy())
+                if cl_pred == cl_gt:
+                    bacc += 1
+                cnt += 1
+
+                # Logging toutes les 20 itérations
+                if cnt == BATCH_STAT:
+                    avg_loss = bloss / BATCH_STAT
+                    avg_acc  = bacc  / BATCH_STAT
+                    loss_hist.append(avg_loss)
+                    acc_hist.append(avg_acc)
+
+                    # Évaluation test (100 premiers)
+                    test_acc, test_count = 0, 0
+                    for x_test, y_test in test_loader:
+                        y_hat_t = forward_fn(x_test)
+                        cl_t = classif_scalar(float(y_hat_t.detach().cpu().numpy()))
+                        if cl_t == float(y_test.numpy()[0][0]):
+                            test_acc += 1
+                        test_count += 1
+                        if test_count == TEST_STOP:
+                            break
+                    test_acc_fin = test_acc / TEST_STOP
+                    test_acc_hist.append(test_acc_fin)
+
+                    msg = f"{model_name}: epoch={epoch} bcnt={bcnt} loss={avg_loss:.6f} acc={avg_acc:.6f} test acc={test_acc_fin:.6f}"
+                    print(msg)
+                    flog.write(msg + "\n")
+                    fcsv.write(f"{model_name},{epoch},{bcnt},{avg_loss:.6f},{avg_acc:.6f},{test_acc_fin:.6f}\n")
+
+                    bloss, bacc, cnt = 0.0, 0, 0
+                    bcnt += 1
+            epoch += 1
+
+        elapsed = time.time() - start_time
+        print(f"{model_name}: training time: {elapsed:.2f}s")
+        flog.write(f"{model_name}: training time: {elapsed:.2f}s\n")
+
+    # Calculs “moving average” (optionnels, style original)
+    window_size = 1000
+    final_window_size = 10
+    loss_hist_ma = moving_average(loss_hist, window_size)
+    acc_hist_ma = moving_average(acc_hist, window_size)
+    test_acc_hist_ma = moving_average(test_acc_hist, window_size)
+
+    return {
+        "loss_hist": loss_hist, "acc_hist": acc_hist, "test_acc_hist": test_acc_hist,
+        "loss_hist_ma": loss_hist_ma, "acc_hist_ma": acc_hist_ma, "test_acc_hist_ma": test_acc_hist_ma
+    }
+
+# ======================
+# ====== MAIN ==========
+# ======================
+
+def main():
+    # Réinitialise les fichiers
+    if os.path.exists(LOG_FILE): os.remove(LOG_FILE)
+    if os.path.exists(CSV_FILE): os.remove(CSV_FILE)
+
+    # ---------------- QRU ----------------
+    L_qru = L_BODY
+    P_qru = qru_param_count(L_qru, D)
+    qru_params = qru_make_params(L_qru, D)
+    def qru_forward_fn(x): return qru_forward(qru_params, x, L_qru, D)
+
+    run_training_like_original(
+        model_name=f"QRU_1q(P={P_qru},L={L_qru})",
+        forward_fn=qru_forward_fn,
+        params_list=[qru_params],
+        train_loader=train_loader,
+        test_loader=test_loader,
+        nb_epoch=NB_EPOCH, lr=LR,
+        log_path=LOG_FILE, csv_path=CSV_FILE
+    )
+
+    # ---------------- VQC (3 qubits) ----------------
+    L_vqc = L_BODY
+    P_vqc = vqc_param_count(L_vqc, Q_VQC)  # = 3*Q*L
+    vqc_body = vqc_make_params(L_vqc, Q_VQC)
+    vqc_qnode = build_vqc3_qnode()
+    def vqc_forward_fn(x): return vqc_qnode(vqc_body, x, L_vqc, D)
+
+    run_training_like_original(
+        model_name=f"VQC_3q(P={P_vqc},L={L_vqc})",
+        forward_fn=vqc_forward_fn,
+        params_list=[vqc_body],
+        train_loader=train_loader,
+        test_loader=test_loader,
+        nb_epoch=NB_EPOCH, lr=LR,
+        log_path=LOG_FILE, csv_path=CSV_FILE
+    )
+
+    # ---------------- MLP ----------------
+    # On égalise le budget "corps" avec P_target = P_qru (≈ P_vqc si D=3)
+    P_target_body = P_qru
+    h_mlp = mlp_h_for_body_budget(P_target_body)
+    P_mlp = mlp_param_count(h_mlp)  # inclut la tête fc2
+    mlp = MLPScalar(h_mlp)
+    def mlp_forward_fn(x): return mlp(x)
+
+    run_training_like_original(
+        model_name=f"MLP(h={h_mlp},P={P_mlp})",
+        forward_fn=mlp_forward_fn,
+        params_list=list(mlp.parameters()),
+        train_loader=train_loader,
+        test_loader=test_loader,
+        nb_epoch=NB_EPOCH, lr=LR,
+        log_path=LOG_FILE, csv_path=CSV_FILE
+    )
+
+if __name__ == "__main__":
+    main()
