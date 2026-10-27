@@ -1,0 +1,38 @@
+{
+  "QRU4": {
+    "stage": "tuning",
+    "kind": "QRU",
+    "depth": 4,
+    "hidden": 17,
+    "lr": 0.03,
+    "seed": 123,
+    "epochs": 50
+  },
+  "QRU10": {
+    "stage": "tuning",
+    "kind": "QRU",
+    "depth": 10,
+    "hidden": 17,
+    "lr": 0.03,
+    "seed": 123,
+    "epochs": 50
+  },
+  "VQC10": {
+    "stage": "tuning",
+    "kind": "VQC",
+    "depth": 10,
+    "hidden": 17,
+    "lr": 0.003,
+    "seed": 123,
+    "epochs": 50
+  },
+  "MLP10": {
+    "stage": "tuning",
+    "kind": "MLP",
+    "depth": 10,
+    "hidden": 17,
+    "lr": 0.03,
+    "seed": 123,
+    "epochs": 50
+  }
+}

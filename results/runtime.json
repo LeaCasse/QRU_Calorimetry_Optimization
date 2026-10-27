@@ -1,0 +1,95 @@
+{
+  "runs": [
+    {
+      "model": "QRU4",
+      "seed": 0,
+      "train_seconds": 5.080376385999898,
+      "inference_seconds": 0.0014519129999825964,
+      "events": 2926
+    },
+    {
+      "model": "QRU4",
+      "seed": 1,
+      "train_seconds": 4.526501752999593,
+      "inference_seconds": 0.0013244480001048942,
+      "events": 2926
+    },
+    {
+      "model": "QRU4",
+      "seed": 2,
+      "train_seconds": 4.768647406999662,
+      "inference_seconds": 0.0013294290001795162,
+      "events": 2926
+    },
+    {
+      "model": "QRU10",
+      "seed": 0,
+      "train_seconds": 11.391257887999927,
+      "inference_seconds": 0.0036338415000045643,
+      "events": 2926
+    },
+    {
+      "model": "QRU10",
+      "seed": 1,
+      "train_seconds": 11.116065561000141,
+      "inference_seconds": 0.00336221549991933,
+      "events": 2926
+    },
+    {
+      "model": "QRU10",
+      "seed": 2,
+      "train_seconds": 11.454759239000396,
+      "inference_seconds": 0.0036214064998603135,
+      "events": 2926
+    },
+    {
+      "model": "VQC10",
+      "seed": 0,
+      "train_seconds": 10.682912188000046,
+      "inference_seconds": 0.0012361899998722947,
+      "events": 2926
+    },
+    {
+      "model": "VQC10",
+      "seed": 1,
+      "train_seconds": 10.463064755000232,
+      "inference_seconds": 0.00114647549980873,
+      "events": 2926
+    },
+    {
+      "model": "VQC10",
+      "seed": 2,
+      "train_seconds": 10.450019677,
+      "inference_seconds": 0.0012055810000219935,
+      "events": 2926
+    },
+    {
+      "model": "MLP10",
+      "seed": 0,
+      "train_seconds": 0.5332759739999346,
+      "inference_seconds": 8.931750016927253e-05,
+      "events": 2926
+    },
+    {
+      "model": "MLP10",
+      "seed": 1,
+      "train_seconds": 0.596298231000219,
+      "inference_seconds": 8.633300012661493e-05,
+      "events": 2926
+    },
+    {
+      "model": "MLP10",
+      "seed": 2,
+      "train_seconds": 0.6532836830001543,
+      "inference_seconds": 8.878649987309473e-05,
+      "events": 2926
+    }
+  ],
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "sklearn": "1.8.0",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+  "threads": 1,
+  "timing": "serial, full training and validation each epoch, data loading excluded"
+}

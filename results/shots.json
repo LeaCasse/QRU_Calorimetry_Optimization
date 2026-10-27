@@ -1,0 +1,26 @@
+{
+  "run_id": "fcffa976f79250",
+  "exact_accuracy": 0.9897470950102529,
+  "model": "ideal independent measurement counts, no device noise",
+  "repetitions": 200,
+  "rows": [
+    {
+      "shots": 50,
+      "expected_accuracy": 0.9805987094845244,
+      "mc_mean": 0.980569036226931,
+      "mc_sd": 0.002053554960294869
+    },
+    {
+      "shots": 200,
+      "expected_accuracy": 0.9899575488092404,
+      "mc_mean": 0.9899196855775805,
+      "mc_sd": 0.0008201447353060578
+    },
+    {
+      "shots": 1000,
+      "expected_accuracy": 0.9901563131514411,
+      "mc_mean": 0.990158920027341,
+      "mc_sd": 0.0004738804422043459
+    }
+  ]
+}

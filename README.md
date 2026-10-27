@@ -1,100 +1,34 @@
-# Optimizing Hyperparameters for Quantum Data Re-Uploaders in Calorimetric Particle Identification
+# QRU calorimetry
 
-This repository accompanies the research article:
+Here is the code for the revised paper. The small NumPy simulators calculate the same circuit outputs and gradients without the old per-event framework overhead.
 
-**Léa Cassé**, **Bernhard Pfahringer**, **Albert Bifet**, and **Frédéric Magniette**  
-_"Optimizing Hyperparameters for Quantum Data Re-Uploaders in Calorimetric Particle Identification"_
-
----
-
-## 🧠 Overview
-
-This project explores the expressivity and performance of single-qubit **Quantum Re-uploading Units (QRUs)** for classifying particles in a simulated high-granularity calorimeter dataset.
-
-We study the influence of architectural and training hyperparameters on model accuracy, expressivity (via Fourier analysis), and computational cost. The study also includes global hyperparameter optimization using **Bayesian Optimization** and **HyperBand**.
-
----
-
-## 📦 Project Structure
-
-```
-
-QRU\_Calorimetry\_Optimization/
-├── data/                    # Dataset files (preprocessed calorimeter data)
-├── Hyperparameters_tuning/  # For each hyperparameters: models, training, and analysis
-├── Global_opti/             # Global optimisation: Bayesian and HyperBand
-├── Theory/                  # Theory experiments
-├── Comparison_QRU_VQC_MLP   # Coparison between those three models with same trainable parameters budget
-├── Optimizing Hyper...      # Paper PDF and related documentation
-├── requirements.txt         # Dependencies
-└── README.md                # This file
-
-````
-
----
-
-## 📊 Dataset
-
-We use a subset of the **D2 calorimetry simulation dataset** (Becheva et al., 2024), which models the response of a CMS-like detector to single particles. For this study, we selected:
-
-- **Three classes**: electrons, pions, and muons  
-- **Three features**: total ECAL energy, shower length, HCAL energy std deviation
-
----
-
-## 🧪 Install requirements
+Use Python 3.12, then run:
 
 ```bash
 pip install -r requirements.txt
-````
+python scripts/check_models.py
+python scripts/check_release.py
+python scripts/build_outputs.py
+```
 
----
+The released results are already included. To train everything again:
 
-## ⚙️ Key Features
+```bash
+python scripts/run_experiments.py tune --recompute
+python scripts/run_experiments.py comparison --recompute
+python scripts/run_experiments.py sweeps --recompute
+python scripts/run_experiments.py features --recompute
+python scripts/run_experiments.py search --recompute
+python scripts/classical_controls.py
+python scripts/benchmark_runtime.py
+python scripts/spectral_probe.py
+python scripts/build_outputs.py
+```
 
-* **Single-qubit QRU** with re-uploaded classical data via angle rotations
-* **Comparative Fourier expressivity** with VQC baselines
-* **Systematic tuning** of:
+Runs save as they finish. Omit `--recompute` to resume. `results/runs.json.gz` holds configurations and trajectories, `models.npz` holds weights and predictions, and `figures` and `tables` are generated from those numbers.
 
-  * Circuit depth
-  * Number of parameters per input
-  * Rotation gates
-  * Normalization ranges
-  * Batch size, optimizer, loss function, learning rate
-* **Hyperparameter optimization** using:
+The [numeric benchmark](data/events.csv.gz) contains the exact data used here. Its column names are preserved. Physical units and the mapping from class codes to particle names are unverified. See `data/provenance.json` for the source hashes.
 
-  * Bayesian optimization (scikit-optimize)
-  * HyperBand + fANOVA priors
+`export_inference.py RUN_ID` writes QASM and exact references. It submits no hardware jobs. Earlier scripts and logs remain in Git history.
 
----
-
-## ✅ Main Results
-
-| Metric                | Value        |
-| --------------------- | ------------ |
-| Best test accuracy    | 0.985        |
-| Optimal circuit       | Rx – Ry – Rx |
-| Optimal depth         | 4 to 5       |
-| Optimal learning rate | 5e-4         |
-| Best optimizer        | Adam         |
-| Best loss function    | L2           |
-
----
-
-## 📚 References
-
-* Pérez-Salinas et al., *Data re-uploading for a universal quantum classifier*, 2019
-* Barthe & Pérez-Salinas, *Gradients and frequency profiles of quantum re-uploading models*, 2023
-* Becheva et al., *High granularity calorimetry D2 dataset*, 2024
-* Cerezo et al., *Variational quantum algorithms*, 2021
-
----
-
-## 📄 License
-
-This code is released under the MIT License.
-
----
-
-For any questions or collaboration, feel free to contact:
-📧 casse.lea@gmail.com
+To rebuild the numeric release from the pinned original files, run `python scripts/prepare_data.py --download`. The parser reads tensor bytes without executing pickle objects and checks source hashes.

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+*.aux
+*.log
+*.out
+results/*_progress.log
+results/tuning/
+results/sweeps/
+results/comparison/
+results/feature_ablation/
+results/bayesian/
+results/hyperband/
+results/figures/*.png
+inference_export/
+results/figures/*.pdf

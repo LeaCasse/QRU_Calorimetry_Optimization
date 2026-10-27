@@ -1,21 +1,22 @@
 {
-  "source": "User supplied Dataset.zip, same loader blobs as the GitHub snapshot",
+  "source_commit": "6020df5802e36a7786fbc1091efcb37b704bea41",
+  "source_base_url": "https://raw.githubusercontent.com/LeaCasse/QRU_Calorimetry_Optimization/6020df5802e36a7786fbc1091efcb37b704bea41/Dataset/",
   "features": [
     "meanz",
     "shower_length",
     "energ_ecal"
   ],
-  "feature_semantics": "Column names reproduced verbatim. Units and precise physical definitions are unverified. No incident energy or cell geometry is available.",
+  "feature_semantics": "Stored headers only. Physical definitions and units are unverified.",
   "labels": [
     -1,
     0,
     1
   ],
-  "particle_label_mapping": "Unverified in supplied files. No particle names assigned to codes.",
+  "particle_label_mapping": "Unverified in supplied files",
   "loader_train_count": 26334,
   "loader_test_count": 2926,
   "spreadsheet_numeric_rows": 29261,
-  "max_reconstruction_distance": 6.32743116523544e-07,
+  "max_reconstruction_distance": 7.281976747555669e-07,
   "source_file_sha256": {
     "dataset.xlsx": "66cf9d813079e48de9eb145dc6ae608ef32f14e25d7db5688343d37ddf878266",
     "qml_essai_test_loader.pth": "b0a721a056e02632a500af301d106d41bc6b524c7a5d1e632659d56f32173b91",

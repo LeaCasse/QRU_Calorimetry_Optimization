@@ -1,0 +1,36 @@
+{
+  "maximum_errors": {
+    "0_QRU": 4.048505697351601e-10,
+    "0_statevector": 1.5543122344752192e-15,
+    "1_QRU": 1.429062285174254e-10,
+    "1_statevector": 5.551115123125783e-16,
+    "2_QRU": 4.2175063441618477e-10,
+    "2_statevector": 8.881784197001252e-16,
+    "3_QRU": 2.861049036573249e-10,
+    "3_statevector": 6.661338147750939e-16,
+    "4_QRU": 2.485207595270822e-10,
+    "4_statevector": 8.881784197001252e-16,
+    "5_QRU": 2.511482688483113e-10,
+    "5_statevector": 6.661338147750939e-16,
+    "6_VQC": 1.50406964660732e-10,
+    "7_MLP": 2.1529147908871948e-10,
+    "global_parity": 0.0
+  },
+  "counts": {
+    "x_train": 21067,
+    "x_val": 5266,
+    "x_test": 2926
+  },
+  "removed_train_test_feature_overlap": 1,
+  "disjoint_feature_vectors": true,
+  "train_minimum": [
+    0.000184,
+    0.0,
+    1.0
+  ],
+  "train_maximum": [
+    933.531142,
+    49.0,
+    50.0
+  ]
+}

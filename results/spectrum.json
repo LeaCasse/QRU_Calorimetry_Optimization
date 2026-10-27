@@ -1,0 +1,15 @@
+{
+  "draws": 100,
+  "points": 128,
+  "depth": 4,
+  "threshold": 0.01,
+  "seed": 2026,
+  "coordinate": 0,
+  "other_coordinates": "independently uniform [-pi,pi] per parameter draw",
+  "trainable_angles": "uniform [-pi,pi]",
+  "QRU_encoding_factors": "fixed at one for this diagnostic only",
+  "maximum_outside_support": {
+    "QRU_fixed": 1.4380484797378922e-16,
+    "VQC": 5.553824967135427e-17
+  }
+}

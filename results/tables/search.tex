@@ -1,0 +1,15 @@
+\begin{table}[htbp]
+\centering
+\caption{Search results}
+\label{tab:search}
+\small
+\begin{tabular}{lrrllrr}
+\toprule
+Selection & $L$ & $\eta$ & Loss & Optimizer & MSE & Acc. (\%) \\
+\midrule
+GP, MSE & 10 & 0.03 & L1 & Adam & 0.0306 & 97.87 \\
+GP, accuracy & 10 & 1 & Huber & Adadelta & 0.0329 & 98.10 \\
+Hyperband & 10 & 0.03 & Huber & Adagrad & 0.0278 & 98.39 \\
+\bottomrule
+\end{tabular}
+\end{table}
