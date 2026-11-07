@@ -18,6 +18,7 @@ from scipy.stats import binom
 from sklearn.metrics import confusion_matrix
 from qru.data import ROOT,load_data
 from qru.models import QRU,classify
+from fourier_scalar import write_table as write_scalar_fourier_table
 
 FIG=ROOT/'results/figures';TAB=ROOT/'results/tables'
 COLORS=['#2463a4','#de7b2c','#25816b','#9a5b96','#6c6f7d','#b29b25','#a34747']
@@ -73,6 +74,9 @@ def main(overleaf=None):
     classical=json.loads((ROOT/'results/classical.json').read_text())
     summary=json.loads((ROOT/'results/search_summary.json').read_text())
     stats={}
+    fourier_result=ROOT/'results/fourier_scalar.json'
+    if fourier_result.exists():
+        write_scalar_fourier_table(json.loads(fourier_result.read_text())['models'], TAB)
     # Spectral support under fixed encoding factors.
     s=pd.read_csv(ROOT/'results/spectrum.csv');fig,ax=plt.subplots(figsize=(7,2.8))
     ax.bar(s.order-.17,s.QRU_fixed_activation,.34,label='QRU, fixed factors')
@@ -167,8 +171,13 @@ def main(overleaf=None):
         grouped.append((label,rr))
         comp_rows.append([label,rr[0]['fit']['parameter_count'],mean_sd([r['test']['accuracy'] for r in rr],True),f"{stat(rr,'test','mse')[0]:.4f}"])
         stats[kind+str(depth)]={'accuracy':stat(rr,'test','accuracy')[0],'sd':stat(rr,'test','accuracy')[1],'mse':stat(rr,'test','mse')[0]}
-        for ax,key in zip(axs,['val_mse','val_accuracy']):
-            a=np.array([[t[key] for t in r['fit']['trace']] for r in rr]);t=np.arange(a.shape[1]);ax.plot(t,a.mean(0),label=label);ax.fill_between(t,a.mean(0)-a.std(0),a.mean(0)+a.std(0),alpha=.12)
+        if kind != 'MLP':
+            for ax,key in zip(axs,['val_mse','val_accuracy']):
+                a=np.array([[t[key] for t in r['fit']['trace']] for r in rr])
+                t=np.arange(a.shape[1])
+                mean,sd=a.mean(0),a.std(0,ddof=1)
+                ax.plot(t,mean,label=label)
+                ax.fill_between(t,mean-sd,mean+sd,alpha=.12)
         for r in rr:flat.append({'model':label,'seed':r['config']['seed'],**r['test'],'validation_mse':r['validation']['mse'],'lr':r['config']['lr']})
     for name,label in [('MLP_softmax','MLP, softmax'),('Logistic','Logistic'),('Fourier','Fourier logits'),('Trees','Boosted trees')]:
         rr=[r for r in classical if r['method']==name]
@@ -198,10 +207,14 @@ def main(overleaf=None):
     qr=grouped[1][1][0];pred=model_arrays('comparison',qr['id'])['prediction'];prob=np.clip((pred+1)/2,0,1)
     shot_rows=[];rng=np.random.default_rng(2026)
     for shots in [50,200,1000]:
-        low=int(np.ceil((1-.33)*shots/2)-1);high=int(np.floor((1+.33)*shots/2))
+        # The middle class includes both thresholds, even when a count lies exactly on one.
+        low=(67*shots-1)//200;high=(133*shots)//200
         correct=np.where(d['y_test']==-1,binom.cdf(low,shots,prob),np.where(d['y_test']==1,binom.sf(high,shots,prob),binom.cdf(high,shots,prob)-binom.cdf(low,shots,prob)))
         acc=[]
-        for _ in range(200):acc.append(np.mean(classify(2*rng.binomial(shots,prob)/shots-1)==d['y_test']))
+        for _ in range(200):
+            counts=rng.binomial(shots,prob)
+            classes=np.where(counts<=low,-1,np.where(counts>high,1,0))
+            acc.append(np.mean(classes==d['y_test']))
         shot_rows.append({'shots':shots,'expected_accuracy':float(correct.mean()),'mc_mean':float(np.mean(acc)),'mc_sd':float(np.std(acc,ddof=1))})
     (ROOT/'results/shots.json').write_text(json.dumps({'run_id':qr['id'],'exact_accuracy':float(np.mean(classify(pred)==d['y_test'])),'model':'ideal independent measurement counts, no device noise','repetitions':200,'rows':shot_rows},indent=2))
     fig,axs=plt.subplots(1,2,figsize=(8,2.8));axs[0].errorbar([r['shots'] for r in shot_rows],[r['mc_mean'] for r in shot_rows],yerr=[r['mc_sd'] for r in shot_rows],fmt='o-',capsize=3)

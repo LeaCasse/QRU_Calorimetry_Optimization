@@ -22,6 +22,7 @@ python scripts/run_experiments.py search --recompute
 python scripts/classical_controls.py
 python scripts/benchmark_runtime.py
 python scripts/spectral_probe.py
+python scripts/fourier_scalar.py
 python scripts/build_outputs.py
 ```
 
@@ -32,3 +33,5 @@ The [numeric benchmark](data/events.csv.gz) contains the exact data used here. I
 `export_inference.py RUN_ID` writes QASM and exact references. It submits no hardware jobs. Earlier scripts and logs remain in Git history.
 
 To rebuild the numeric release from the pinned original files, run `python scripts/prepare_data.py --download`. The parser reads tensor bytes without executing pickle objects and checks source hashes.
+
+The scalar Fourier control fits four models with the same class targets and thresholds as the QRU. Run `python scripts/fourier_scalar.py --overleaf PATH` to reproduce its scores, paired accuracy intervals and manuscript table.
