@@ -1,4 +1,5 @@
 """Serial timings on one host, independent of the parallel experiment jobs."""
+import argparse
 import os
 for k in ['OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS']: os.environ[k]='1'
 from pathlib import Path
@@ -14,8 +15,16 @@ from qru.data import ROOT,load_data
 from qru.train import make_model,fit
 
 
-def main():
-    d=load_data();selected=json.loads((ROOT/'results/selected.json').read_text());rows=[]
+def main(depth_sweep=False):
+    d=load_data()
+    if depth_sweep:
+        selected = {f'QRU{depth}': {'kind': 'QRU', 'depth': depth, 'lr': .003}
+                    for depth in [1, 2, 3, 4, 6, 10, 14]}
+        output = ROOT/'results/runtime_depth.json'
+    else:
+        selected = json.loads((ROOT/'results/selected.json').read_text())
+        output = ROOT/'results/runtime.json'
+    rows=[]
     for name,c in selected.items():
         m=make_model(**c)
         for seed in range(3):
@@ -27,9 +36,13 @@ def main():
             rows.append({'model':name,'seed':seed,'train_seconds':info['seconds'],
                          'inference_seconds':float(np.median(timings)),'events':len(d['x_test'])})
             print(rows[-1],flush=True)
-            (ROOT/'results/runtime.json').write_text(json.dumps({'runs':rows,'python':platform.python_version(),
-                'numpy':np.__version__,'scipy':scipy.__version__,'sklearn':sklearn.__version__,
-                'platform':platform.platform(),'threads':1,'timing':'serial, full training and validation each epoch, data loading excluded'},indent=2))
+    output.write_text(json.dumps({'runs':rows,'python':platform.python_version(),
+        'numpy':np.__version__,'scipy':scipy.__version__,'sklearn':sklearn.__version__,
+        'platform':platform.platform(),'threads':1,'epochs':50,
+        'timing':'serial, full training and validation each epoch, data loading excluded'},indent=2)+'\n')
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--depth-sweep', action='store_true')
+    main(parser.parse_args().depth_sweep)

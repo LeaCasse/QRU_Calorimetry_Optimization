@@ -4,6 +4,7 @@ os.environ['OPENBLAS_NUM_THREADS']='1'
 from pathlib import Path
 import argparse
 import gzip
+from io import BytesIO
 import itertools
 import json
 import shutil
@@ -47,7 +48,14 @@ def model_arrays(stage,run_id):
 
 
 def save(fig,name):
-    fig.tight_layout();fig.savefig(FIG/(name+'.pdf'));fig.savefig(FIG/(name+'.png'),dpi=160);plt.close(fig)
+    fig.tight_layout()
+    with BytesIO() as buffer:
+        fig.savefig(buffer,format='pdf')
+        temporary=FIG/f'{name}.{os.getpid()}.tmp'
+        temporary.write_bytes(buffer.getvalue())
+        temporary.replace(FIG/(name+'.pdf'))
+    fig.savefig(FIG/(name+'.png'),dpi=160)
+    plt.close(fig)
 
 
 def table(name,caption,label,columns,rows,align=None):
@@ -129,16 +137,51 @@ def main(overleaf=None):
         for p in params:ax.plot(u,m.forward(p,u[:,None]),lw=1)
         ax.set(ylabel=r'$\langle Z\rangle$',title=axes,ylim=(-1.05,1.05))
     axs[-1].set_xlabel('Input angle');save(fig,'templates')
-    # Accumulation is evaluated against both epochs and optimizer steps.
+    # Each point is evaluated after a completed epoch, on two update scales.
     fig,axs=plt.subplots(1,2,figsize=(8,3));batch_rows=[]
     for b in [1,5,20,100,256,'full']:
         rr=[r for r in sw if r['config']['group']=='batch' and r['config']['batch_size']==b]
-        a=np.array([[t['val_accuracy'] for t in r['fit']['trace']] for r in rr]);t=np.arange(a.shape[1]);steps=rr[0]['fit']['steps']/10
-        axs[0].plot(t,a.mean(0),label=str(b));axs[1].plot(t*steps,a.mean(0),label=str(b))
-        batch_rows.append([str(b),rr[0]['fit']['steps'],mean_sd([r['validation']['accuracy'] for r in rr],True)])
-    axs[0].set(xlabel='Epoch',ylabel='Validation accuracy');axs[1].set(xlabel='Optimizer steps',ylabel='Validation accuracy',xscale='symlog')
+        accuracy=np.array([[point['val_accuracy'] for point in r['fit']['trace']] for r in rr]).mean(0)
+        epochs=np.array([point['epoch'] for point in rr[0]['fit']['trace']])
+        total_steps=rr[0]['fit']['steps']
+        steps_per_epoch=total_steps//rr[0]['config']['epochs']
+        steps=epochs*steps_per_epoch
+        label='Full (4,096)' if b=='full' else str(b)
+        axs[0].plot(epochs,accuracy,label=label,marker='o',markevery=[-1],ms=4)
+        axs[1].plot(steps,accuracy,marker='o',markevery=[-1],ms=4)
+        if b=='full':
+            axs[1].annotate(f'{total_steps} updates',xy=(steps[-1],accuracy[-1]),
+                            xytext=(7,-2),textcoords='offset points',fontsize=9)
+        batch_rows.append([str(b),total_steps,mean_sd([r['validation']['accuracy'] for r in rr],True)])
+    axs[0].set(xlabel='Completed epochs',ylabel='Validation accuracy')
+    axs[1].set_xscale('symlog',linthresh=1)
+    axs[1].set(xlabel='Optimizer updates',ylabel='Validation accuracy',
+               xticks=[0,1,10,100,1000,10000],
+               xticklabels=['0','1','10','100','1,000','10,000'])
     axs[0].legend(title='Batch size',frameon=False,ncol=2);save(fig,'batch')
     table('batch','Update budget','tab:batch',['Batch size','Updates','Validation accuracy (\\%)'],batch_rows)
+    # Detailed convergence plots for the loss and learning-rate sweeps.
+    fig,axs=plt.subplots(2,2,figsize=(8,5.2),sharex=True)
+    for row,group,key,settings in [
+        (0,'loss','loss',[('L1','L1'),('L2','L2'),('Huber','Huber')]),
+        (1,'learning_rate','lr',[(5e-7,r'$5\times10^{-7}$'),(.03,'0.03'),(.5,'0.5')]),
+    ]:
+        for value,label in settings:
+            rr=[r for r in sw if r['config']['group']==group and r['config'][key]==value]
+            epochs=[point['epoch'] for point in rr[0]['fit']['trace']]
+            for ax,metric in zip(axs[row],['val_mse','val_accuracy']):
+                values=np.array([[point[metric] for point in r['fit']['trace']] for r in rr])
+                ax.plot(epochs,values.mean(0),label=label)
+        axs[row,0].set(ylabel='Validation MSE',yscale='log')
+        axs[row,1].set(ylabel='Validation accuracy')
+        if row==0:
+            axs[row,1].legend(title='Training loss',frameon=False,loc='lower right')
+        else:
+            axs[row,1].legend(title='Adam rate',frameon=False,loc='lower right',
+                              bbox_to_anchor=(1,.1))
+    for ax in axs[-1]:
+        ax.set_xlabel('Completed epochs')
+    save(fig,'training_traces')
     # Fixed schedules are not adaptive to the observed validation trace.
     fig,axs=plt.subplots(1,2,figsize=(8,2.8))
     for opt in ['Adam','SGD']:
@@ -227,6 +270,29 @@ def main(overleaf=None):
         assert len(rr)==3,'Runtime benchmark incomplete'
         rt.append([name,f"{np.median([r['train_seconds'] for r in rr]):.3f}",f"{1000*np.median([r['inference_seconds'] for r in rr]):.3f}"])
     table('runtime','Serial runtime','tab:runtime',['Model','Training (s)','2926 predictions (ms)'],rt)
+    depth_runtime=ROOT/'results/runtime_depth.json'
+    if depth_runtime.exists():
+        depth_rows=json.loads(depth_runtime.read_text())['runs']
+        fig,axs=plt.subplots(1,2,figsize=(8,2.8))
+        for ax,key,scale,label in zip(axs,['train_seconds','inference_seconds'],[1,1000],
+                                     ['Training (s)','2,926 predictions (ms)']):
+            values=np.array([[scale*r[key] for r in depth_rows if r['model']==f'QRU{z}'] for z in dep])
+            medians=np.median(values,axis=1)
+            ax.errorbar(dep,medians,yerr=[medians-values.min(1),values.max(1)-medians],
+                        fmt='o-',capsize=3)
+            ax.set(xlabel='Reuploading depth',ylabel=label,xticks=dep)
+        save(fig,'runtime_depth')
+    initializations=ROOT/'results/initializations.json'
+    if initializations.exists():
+        rr=json.loads(initializations.read_text())['runs']
+        fig,axs=plt.subplots(1,2,figsize=(8,2.8))
+        for ax,key,scale,label in zip(axs,['accuracy','mse'],[100,1],['Test accuracy (%)','Test MSE']):
+            values=np.array([scale*r['test'][key] for r in rr])
+            ax.scatter([r['initialization_seed'] for r in rr],values,s=14)
+            ax.axhline(values.mean(),ls=':',color='gray',label='Mean')
+            ax.set(xlabel='Initialization seed',ylabel=label)
+        axs[0].legend(frameon=False)
+        save(fig,'initializations')
     stats['classical']={name:float(np.mean([r['test_accuracy'] for r in classical if r['method']==name])) for name in ['Logistic','Fourier','Trees','MLP_softmax']}
     (ROOT/'results/summary.json').write_text(json.dumps(stats,indent=2))
     macros=[]

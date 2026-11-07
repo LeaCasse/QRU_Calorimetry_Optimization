@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\caption{Optimizer settings}
+\label{tab:optimizers}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Optimizer & Learning rate & Validation MSE & Validation accuracy (\%) \\
+\midrule
+SGD & 0.03 & 0.0469 & $97.57\pm 0.07$ \\
+RMSprop & 0.003 & 0.0408 & $97.89\pm 0.45$ \\
+Adam & 0.003 & 0.0422 & $97.75\pm 0.35$ \\
+Adagrad & 0.03 & 0.0686 & $95.46\pm 1.59$ \\
+Adadelta & 1 & 0.0405 & $97.82\pm 0.48$ \\
+Adamax & 0.003 & 0.0615 & $96.27\pm 1.32$ \\
+NAdam & 0.003 & 0.0419 & $97.91\pm 0.55$ \\
+AdamW & 0.003 & 0.0418 & $97.84\pm 0.25$ \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -16,6 +16,7 @@ class Optimizer:
     def __init__(self, size, kind='Adam', lr=.003):
         self.kind, self.lr, self.t = kind, lr, 0
         self.m = np.zeros(size); self.v = np.zeros(size); self.u = np.zeros(size)
+        self.momentum_product = 1.
 
     def step(self, p, g):
         self.t += 1
@@ -32,8 +33,22 @@ class Optimizer:
         if self.kind == 'RMSprop':
             self.v = .99*self.v+.01*g*g
             return p-self.lr*g/(np.sqrt(self.v)+1e-8)
+        if self.kind == 'Adamax':
+            self.m = .9*self.m+.1*g
+            self.u = np.maximum(.999*self.u, np.abs(g)+1e-8)
+            return p-self.lr*(self.m/(1-.9**self.t))/self.u
         self.m = .9*self.m+.1*g; self.v = .999*self.v+.001*g*g
-        return p-self.lr*(self.m/(1-.9**self.t))/(np.sqrt(self.v/(1-.999**self.t))+1e-8)
+        denominator = np.sqrt(self.v/(1-.999**self.t))+1e-8
+        if self.kind == 'NAdam':
+            mu = .9*(1-.5*.96**(.004*self.t))
+            mu_next = .9*(1-.5*.96**(.004*(self.t+1)))
+            self.momentum_product *= mu
+            momentum = (1-mu)*g/(1-self.momentum_product)
+            momentum += mu_next*self.m/(1-self.momentum_product*mu_next)
+            return p-self.lr*momentum/denominator
+        if self.kind == 'AdamW':
+            p = (1-self.lr*.01)*p
+        return p-self.lr*(self.m/(1-.9**self.t))/denominator
 
 
 def metrics(pred, y):
