@@ -2,19 +2,18 @@
 import os
 os.environ['OPENBLAS_NUM_THREADS']='1'
 from pathlib import Path
-import gzip
-import json
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from collections import Counter
 import numpy as np
 from qru.data import ROOT,load_data
 from qru.train import make_model,metrics
+from csv_results import read_runs, write_metrics
 
 
 def main():
     d=load_data()
-    with gzip.open(ROOT/'results/runs.json.gz','rt') as f:rows=json.load(f)
+    rows=read_runs()
     ids=[r['id'] for r in rows];assert len(ids)==len(set(ids))
     counts=Counter(r['config']['stage'] for r in rows)
     assert counts=={'sweeps':138,'comparison':40,'feature_ablation':21,'tuning':12,'bayesian':50,'hyperband':67}
@@ -39,8 +38,9 @@ def main():
     assert not (train_keys & val_keys or train_keys & test_keys or val_keys & test_keys)
     check={'unique_completed_runs':len(rows),'stage_counts':dict(counts),'recomputed_test_runs':evaluated,
            'maximum_prediction_error':max_error,'disjoint_feature_vectors':True}
-    (ROOT/'results/release_check.json').write_text(json.dumps(check,indent=2))
-    print(json.dumps(check,indent=2))
+    path = ROOT/'results/release_check.csv'
+    write_metrics(path, check)
+    print(path.read_text().rstrip())
 
 
 if __name__=='__main__':main()

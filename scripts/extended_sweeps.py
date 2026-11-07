@@ -1,7 +1,6 @@
 """Run the additional optimizer and learning-rate settings in the manuscript."""
 import argparse
 from concurrent.futures import ProcessPoolExecutor
-import json
 import os
 from pathlib import Path
 import sys
@@ -14,6 +13,7 @@ import numpy as np
 from qru.data import ROOT, load_data
 from qru.models import QRU
 from qru.train import fit
+from csv_results import read_rows, write_rows
 
 
 def run(job):
@@ -39,6 +39,28 @@ def summarize(name, optimizer, rate, results):
     return row
 
 
+def write_sweeps(rows):
+    summaries, curves = [], []
+    for row in rows:
+        summaries.append({key: value for key, value in row.items() if key != "trace"})
+        if "trace" in row:
+            trace = row["trace"]
+            curves.extend(dict(setting=row["setting"], epoch=i, val_mse=mse, val_accuracy=acc)
+                          for i, (mse, acc) in enumerate(zip(trace["val_mse"], trace["val_accuracy"])))
+    write_rows(ROOT / "results/extended_sweeps.csv", summaries)
+    write_rows(ROOT / "results/extended_curves.csv", curves)
+
+
+def read_sweeps():
+    rows = read_rows(ROOT / "results/extended_sweeps.csv")
+    settings = {row["setting"]: row for row in rows}
+    for point in read_rows(ROOT / "results/extended_curves.csv"):
+        trace = settings[point["setting"]].setdefault("trace", {"val_mse": [], "val_accuracy": []})
+        for metric in trace:
+            trace[metric].append(point[metric])
+    return rows
+
+
 def main(workers):
     settings = [
         ("Adamax", "Adamax", .003), ("NAdam", "NAdam", .003), ("AdamW", "AdamW", .003),
@@ -49,10 +71,7 @@ def main(workers):
         results = list(pool.map(run, jobs))
     rows = [summarize(*setting, [r for r in results if r[0] == setting[0]])
             for setting in settings]
-    output = ROOT / "results" / "extended_sweeps.json"
-    temporary = output.with_suffix(".tmp")
-    temporary.write_text(json.dumps(rows, indent=2) + "\n")
-    temporary.replace(output)
+    write_sweeps(rows)
 
 
 if __name__ == "__main__":

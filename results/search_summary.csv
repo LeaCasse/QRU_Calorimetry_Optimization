@@ -1,0 +1,16 @@
+metric,value
+first_order_importance.depth,0.08782460541763384
+first_order_importance.learning_rate,0.6750364671854377
+first_order_importance.loss,0.0176013861886404
+first_order_importance.optimizer,0.015854827707759395
+surrogate_cv_r2.fold_1,0.04631495956239351
+surrogate_cv_r2.fold_2,-0.31163214647659054
+surrogate_cv_r2.fold_3,0.2625798311851544
+surrogate_cv_r2.fold_4,0.6042066929018467
+surrogate_cv_r2.fold_5,-3.2659400703168187
+bayesian.requested_epochs,600
+bayesian.distinct_evaluations,50
+bayesian.executed_epochs,600
+hyperband.requested_epochs,423
+hyperband.distinct_evaluations,67
+hyperband.executed_epochs,411

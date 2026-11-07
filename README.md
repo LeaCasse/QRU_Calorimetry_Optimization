@@ -7,6 +7,7 @@ Use Python 3.12, then run:
 ```bash
 pip install -r requirements.txt
 python scripts/build_outputs.py
+python scripts/build_paper_figures.py
 ```
 
 The released results are already included. To train everything again:
@@ -28,4 +29,6 @@ python scripts/build_outputs.py
 python scripts/build_paper_figures.py
 ```
 
-The manuscript's IQM Garnet figure shows a separate hardware execution. [Execution details](results/qpu_execution.md) document its protocol and how it relates to the numerical benchmark.
+Saved results are in CSV files. `results/runs.csv` lists the runs and `results/training_curves.csv.gz` holds their epoch-by-epoch metrics. The `.npz` files contain arrays used by the reproduction scripts.
+
+The IQM Garnet figure in the manuscript reports a separate experiment with a seven-layer, single-qubit circuit and ten inputs, using 50 and 200 shots. The measured scores gave the same class decisions as the simulator for these inputs. The same evaluation loader was used for checkpoint selection. The hardware figure is in the manuscript and the raw device counts and checkpoint are unavailable. `scripts/export_inference.py` exports QASM and CSV references for a saved benchmark run.

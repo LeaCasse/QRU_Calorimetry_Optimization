@@ -1,0 +1,13 @@
+model,seed,train_seconds,inference_seconds,events,python,numpy,scipy,sklearn,platform,threads,timing
+QRU4,0,5.080376385999898,0.0014519129999825964,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+QRU4,1,4.526501752999593,0.0013244480001048942,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+QRU4,2,4.768647406999662,0.0013294290001795162,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+QRU10,0,11.391257887999927,0.0036338415000045643,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+QRU10,1,11.116065561000141,0.00336221549991933,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+QRU10,2,11.454759239000396,0.0036214064998603135,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+VQC10,0,10.682912188000046,0.0012361899998722947,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+VQC10,1,10.463064755000232,0.00114647549980873,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+VQC10,2,10.450019677,0.0012055810000219935,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+MLP10,0,0.5332759739999346,8.931750016927253e-05,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+MLP10,1,0.596298231000219,8.633300012661493e-05,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"
+MLP10,2,0.6532836830001543,8.878649987309473e-05,2926,3.12.14,2.3.5,1.17.0,1.8.0,Linux-6.18.55-x86_64-with-glibc2.39,1,"serial, full training and validation each epoch, data loading excluded"

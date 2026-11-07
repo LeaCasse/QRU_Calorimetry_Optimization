@@ -1,7 +1,6 @@
 """Evaluate the four-layer QRU across 50 initializations with one batch order."""
 import argparse
 from concurrent.futures import ProcessPoolExecutor
-import json
 import os
 from pathlib import Path
 import sys
@@ -13,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from qru.data import ROOT, load_data
 from qru.models import QRU
 from qru.train import fit, metrics
+from csv_results import write_rows
 
 
 ORDER_SEED = 2026
@@ -42,10 +42,6 @@ if __name__ == "__main__":
         for row in pool.map(run, range(50)):
             rows.append(row)
             print(row, flush=True)
-    result = {"depth": 4, "epochs": 50, "batch_size": 256, "learning_rate": .003,
-              "optimizer": "Adam", "training_loss": "L2", "batch_order_seed": ORDER_SEED,
-              "runs": rows}
-    output = ROOT / "results" / "initializations.json"
-    temporary = output.with_suffix(".tmp")
-    temporary.write_text(json.dumps(result, indent=2) + "\n")
-    temporary.replace(output)
+    settings = {"depth": 4, "epochs": 50, "batch_size": 256, "learning_rate": .003,
+                "optimizer": "Adam", "training_loss": "L2", "batch_order_seed": ORDER_SEED}
+    write_rows(ROOT / "results/initializations.csv", (dict(row, **settings) for row in rows))

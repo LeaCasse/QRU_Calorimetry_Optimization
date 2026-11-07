@@ -1,7 +1,6 @@
 """Compare coordinate Fourier order and global parity with one scalar readout."""
 import argparse
 import itertools
-import json
 import os
 from pathlib import Path
 import sys
@@ -13,6 +12,7 @@ import numpy as np
 
 from qru.data import ROOT, load_data
 from qru.models import classify
+from csv_results import write_rows
 
 
 ORDERS = (1, 2)
@@ -100,6 +100,21 @@ def write_table(rows, directory):
     (directory / "fourier_scalar.tex").write_text("\n".join(lines) + "\n")
 
 
+def write_fourier(rows, penalty_grid, counts, contrasts):
+    directory = ROOT / "results"
+    write_rows(directory / "fourier_scalar.csv",
+               (dict({k: v for k, v in row.items() if k != "validation_mse_grid"},
+                     n_train=counts["train"], n_validation=counts["validation"], n_test=counts["test"])
+                for row in rows))
+    write_rows(directory / "fourier_grid.csv",
+               (dict(order=row["order"], parity=row["parity"], penalty=penalty, validation_mse=mse)
+                for row in rows for penalty, mse in zip(penalty_grid, row["validation_mse_grid"])))
+    write_rows(directory / "fourier_contrasts.csv",
+               (dict(contrast=name, accuracy_delta=row["accuracy_delta"],
+                     lower=row["interval"][0], upper=row["interval"][1])
+                for name, row in contrasts.items()))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--overleaf", type=Path)
@@ -132,18 +147,13 @@ def main():
             "validation": metrics(basis(xv, order, even_only) @ weights, yv),
             "test": metrics(predictions[key], yt),
         })
-    result = {
-        "penalty_grid": PENALTIES.tolist(),
-        "counts": {"train": len(y), "validation": len(yv), "test": len(yt)},
-        "models": rows,
-        "paired_accuracy_contrasts": paired_intervals(predictions, yt, data["raw_test"]),
-    }
-    (ROOT / "results/fourier_scalar.json").write_text(json.dumps(result, indent=2) + "\n")
+    counts = {"train": len(y), "validation": len(yv), "test": len(yt)}
+    write_fourier(rows, PENALTIES, counts, paired_intervals(predictions, yt, data["raw_test"]))
     np.savez_compressed(ROOT / "results/fourier_scalar_predictions.npz", **predictions)
     write_table(rows, ROOT / "results/tables")
     if args.overleaf:
         write_table(rows, args.overleaf / "tables")
-    print(json.dumps(result, indent=2))
+    print((ROOT / "results/fourier_scalar.csv").read_text().rstrip())
 
 
 if __name__ == "__main__":

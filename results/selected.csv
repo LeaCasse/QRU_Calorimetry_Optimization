@@ -1,0 +1,5 @@
+model,stage,kind,depth,hidden,lr,seed,epochs
+QRU4,tuning,QRU,4,17,0.03,123,50
+QRU10,tuning,QRU,10,17,0.03,123,50
+VQC10,tuning,VQC,10,17,0.003,123,50
+MLP10,tuning,MLP,10,17,0.03,123,50

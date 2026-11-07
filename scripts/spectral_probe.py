@@ -2,11 +2,11 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
-import json
 import numpy as np
 import pandas as pd
 from qru.models import QRU, VQC
 from qru.data import ROOT
+from csv_results import write_metrics
 
 
 def main():
@@ -28,10 +28,10 @@ def main():
         values[name+'_activation'] = np.mean(spectrum>eps, axis=0)
         values[name+'_mean_amplitude'] = spectrum.mean(0)
     pd.DataFrame({'order':orders, **values}).query('abs(order) <= 8').to_csv(ROOT/'results/spectrum.csv', index=False)
-    (ROOT/'results/spectrum.json').write_text(json.dumps({'draws': draws,'points': n,'depth': depth,
+    write_metrics(ROOT/'results/spectrum_settings.csv', {'draws': draws,'points': n,'depth': depth,
         'threshold': eps,'seed': 2026,'coordinate': 0,'other_coordinates': 'independently uniform [-pi,pi] per parameter draw',
         'trainable_angles': 'uniform [-pi,pi]', 'QRU_encoding_factors': 'fixed at one for this diagnostic only',
-        'maximum_outside_support': max_leakage}, indent=2))
+        'maximum_outside_support': max_leakage})
 
 
 if __name__ == '__main__': main()

@@ -16,27 +16,21 @@ import numpy as np
 from qru.data import ROOT, load_data
 from qru.models import classify
 from qru.train import make_model, fit, metrics
-
-
-def save_json(path, obj):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(obj, indent=2)); tmp.replace(path)
+from csv_results import cache_paths, read_rows, read_runs, write_metrics, write_rows, write_runs, write_search
 
 
 @lru_cache(maxsize=1)
 def released_runs():
-    import gzip
-    path=ROOT/'results/runs.json.gz'
-    if not path.exists():return {}
-    with gzip.open(path,'rt') as f:return {r['id']:r for r in json.load(f)}
+    return {r['id']:r for r in read_runs()}
 
 
 def run_one(config):
     name = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:14]
-    stage = config['stage']; path = ROOT / 'results' / stage / (name+'.json')
+    stage = config['stage']
+    path, curve = cache_paths(stage, name)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and not os.environ.get('QRU_RECOMPUTE'):
-        return json.loads(path.read_text())
+        return read_runs(path, curve)[0]
     if not os.environ.get('QRU_RECOMPUTE') and name in released_runs():
         return released_runs()[name]
     d = load_data(); mode = config.get('normalization', 'centered')
@@ -67,7 +61,7 @@ def run_one(config):
         np.savez_compressed(weights, theta=theta, prediction=pred, validation_prediction=pred_val)
     else:
         np.savez_compressed(weights, theta=theta)
-    save_json(path, result)
+    write_runs(path, curve, [result])
     return result
 
 
@@ -116,12 +110,14 @@ def tune():
         rows = [run_one(c) for c in configs if c['kind'] == kind and c['depth'] == depth]
         best = min(rows, key=lambda r: r['validation']['mse'])
         selected[kind+str(depth)] = best['config']
-    save_json(ROOT / 'results/selected.json', selected)
+    write_rows(ROOT/'results/selected.csv', (dict(model=name, **c) for name,c in selected.items()))
 
 
 def comparison():
-    selected = json.loads((ROOT / 'results/selected.json').read_text())
-    configs = [dict(c, stage='comparison', seed=seed) for c in selected.values() for seed in range(10)]
+    selected = read_rows(ROOT/'results/selected.csv')
+    for config in selected:
+        config.pop('model')
+    configs = [dict(c, stage='comparison', seed=seed) for c in selected for seed in range(10)]
     execute(configs)
 
 
@@ -155,7 +151,7 @@ def search():
              'epochs': 12, 'subset': 8192, 'seed': 2026}
         r = run_one(c); used.append(idx); scores.append(r['validation']['mse'])
         rows.append({'trial': trial+1, 'grid_index': idx, 'result': r})
-        save_json(ROOT/'results/bayesian_search.json', rows)
+        write_search(ROOT/'results/bayesian_search.csv', rows)
         print('GP', trial+1, round(scores[-1], 5), c, flush=True)
     # Canonical Hyperband brackets with eta=3 and R=27. Promotions replay the
     # same deterministic trajectory from epoch zero. All replay costs are kept.
@@ -171,7 +167,7 @@ def search():
                      'epochs': resource*3**rung, 'subset': 8192, 'seed': 2026}
                 r = run_one(c); evaluated.append((r['validation']['mse'], int(idx)))
                 hb.append({'bracket': s, 'rung': rung, 'grid_index': int(idx), 'result': r})
-                save_json(ROOT/'results/hyperband_search.json', hb)
+                write_search(ROOT/'results/hyperband_search.csv', hb)
             candidates = [i for _, i in sorted(evaluated)[:max(1, len(candidates)//3)]]
             print('HB', s, rung, len(evaluated), min(evaluated)[0], flush=True)
     # First-order functional variance of a random-forest surrogate on this
@@ -186,12 +182,13 @@ def search():
         vals = list(dict.fromkeys(c[j] for c in grid))
         marg = [np.mean(pred[[c[j] == v for c in grid]]) for v in vals]
         importance[name] = float(np.var(marg)/variance)
-    save_json(ROOT/'results/search_summary.json', {'bayesian_best_mse': min(rows, key=lambda r:r['result']['validation']['mse']),
-        'bayesian_best_accuracy': max(rows, key=lambda r:r['result']['validation']['accuracy']),
-        'hyperband_best_full_budget': min([r for r in hb if r['result']['config']['epochs'] == 27], key=lambda r:r['result']['validation']['mse']),
-        'first_order_importance': importance, 'surrogate_cv_r2': cv.tolist(),
-        'bayesian_requested_epochs': sum(r['result']['config']['epochs'] for r in rows),
-        'hyperband_requested_epochs': sum(r['result']['config']['epochs'] for r in hb)})
+    summary = {'first_order_importance': importance,
+               'surrogate_cv_r2': {f'fold_{i}': score for i,score in enumerate(cv,1)}}
+    for name,trials in [('bayesian',rows),('hyperband',hb)]:
+        unique = {r['result']['id']: r['result']['config']['epochs'] for r in trials}
+        summary[name] = {'requested_epochs': sum(r['result']['config']['epochs'] for r in trials),
+                         'distinct_evaluations': len(unique), 'executed_epochs': sum(unique.values())}
+    write_metrics(ROOT/'results/search_summary.csv', summary)
 
 
 if __name__ == '__main__':

@@ -3,11 +3,9 @@ import argparse
 from pathlib import Path
 import shutil
 
-from build_outputs import FIG, TAB, ROOT, json, load_data, np, plt, QRU, runs, save, table
-
-
-def read_result(name):
-    return json.loads((ROOT / "results" / f"{name}.json").read_text())
+from build_outputs import FIG, TAB, ROOT, load_data, np, plt, QRU, runs, save, table
+from csv_results import read_rows, read_search
+from extended_sweeps import read_sweeps
 
 
 def metrics(group):
@@ -41,7 +39,7 @@ def main(overleaf=None):
     FIG.mkdir(parents=True, exist_ok=True)
     TAB.mkdir(parents=True, exist_ok=True)
     sw = runs("sweeps")
-    extended = read_result("extended_sweeps")
+    extended = read_sweeps()
 
     def group(sweep, key, value):
         return [r for r in sw if r["config"]["group"] == sweep and r["config"][key] == value]
@@ -67,7 +65,7 @@ def main(overleaf=None):
                   ncol=len(depths), frameon=False, fontsize=10, title_fontsize=10)
         save(fig, f"paper_depth_{key}")
 
-    timing = read_result("runtime_depth")["runs"]
+    timing = read_rows(ROOT / "results/runtime_depth.csv")
     fig, axs = plt.subplots(1, 3, figsize=(10, 2.7))
     for i, ax in enumerate(axs[:2]):
         points = [estimate(metrics(group("depth", "depth", z))[i]) for z in depths]
@@ -223,7 +221,7 @@ def main(overleaf=None):
                     "paper_schedule_curves", None)
 
     for name, stem in [("bayesian_search", "paper_bayesian"), ("hyperband_search", "paper_hyperband")]:
-        rr = read_result(name)
+        rr = read_search(name)
         fig, axs = plt.subplots(1, 2, figsize=(8, 2.8))
         for ax, key, ylabel in zip(axs, ["mse", "accuracy"], ["Validation MSE", "Validation accuracy"]):
             if name == "bayesian_search":

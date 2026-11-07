@@ -3,10 +3,8 @@ import os
 os.environ['OPENBLAS_NUM_THREADS']='1'
 from pathlib import Path
 import argparse
-import gzip
 from io import BytesIO
 import itertools
-import json
 import shutil
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
@@ -20,6 +18,7 @@ from sklearn.metrics import confusion_matrix
 from qru.data import ROOT,load_data
 from qru.models import QRU,classify
 from fourier_scalar import write_table as write_scalar_fourier_table
+from csv_results import cache_paths, read_rows, read_runs, read_search, write_rows, write_runs
 
 FIG=ROOT/'results/figures';TAB=ROOT/'results/tables'
 COLORS=['#2463a4','#de7b2c','#25816b','#9a5b96','#6c6f7d','#b29b25','#a34747']
@@ -29,13 +28,12 @@ plt.rcParams.update({'font.size':11,'axes.spines.top':False,'axes.spines.right':
 
 
 def runs(stage):
-    paths=list((ROOT/'results'/stage).glob('*.json'))
-    rows={}
-    archive=ROOT/'results/runs.json.gz'
-    if archive.exists():
-        with gzip.open(archive,'rt') as f:rows={r['id']:r for r in json.load(f) if r['config']['stage']==stage}
-    for p in paths:
-        r=json.loads(p.read_text());rows[r['id']]=r
+    rows = {r['id']:r for r in read_runs() if r['config']['stage']==stage}
+    for path in sorted((ROOT/'results'/stage).glob('*.csv')):
+        if path.stem.endswith('_curve'):
+            continue
+        row = read_runs(*cache_paths(stage, path.stem))[0]
+        rows[row['id']] = row
     return list(rows.values())
 
 
@@ -79,12 +77,11 @@ def mean_sd(a,percent=False):
 def main(overleaf=None):
     FIG.mkdir(parents=True,exist_ok=True);TAB.mkdir(parents=True,exist_ok=True)
     d=load_data();sw=runs('sweeps');comp=runs('comparison');features=runs('feature_ablation')
-    classical=json.loads((ROOT/'results/classical.json').read_text())
-    summary=json.loads((ROOT/'results/search_summary.json').read_text())
+    classical=read_rows(ROOT/'results/classical.csv')
     stats={}
-    fourier_result=ROOT/'results/fourier_scalar.json'
+    fourier_result=ROOT/'results/fourier_scalar.csv'
     if fourier_result.exists():
-        write_scalar_fourier_table(json.loads(fourier_result.read_text())['models'], TAB)
+        write_scalar_fourier_table(read_rows(fourier_result), TAB)
     # Spectral support under fixed encoding factors.
     s=pd.read_csv(ROOT/'results/spectrum.csv');fig,ax=plt.subplots(figsize=(7,2.8))
     ax.bar(s.order-.17,s.QRU_fixed_activation,.34,label='QRU, fixed factors')
@@ -196,7 +193,7 @@ def main(overleaf=None):
     axs[0].set(xlabel='Epoch',ylabel='Validation accuracy');axs[0].legend(frameon=False)
     axs[1].set(xlabel='Epoch',ylabel='Learning rate',yscale='log');save(fig,'schedule')
     # Search results and their real budgets.
-    gp=json.loads((ROOT/'results/bayesian_search.json').read_text());hb=json.loads((ROOT/'results/hyperband_search.json').read_text())
+    gp=read_search('bayesian_search');hb=read_search('hyperband_search')
     fig,axs=plt.subplots(1,2,figsize=(8,2.8));scores=[r['result']['validation']['mse'] for r in gp]
     axs[0].plot(range(1,len(scores)+1),scores,'o',ms=3,alpha=.5,label='Trial');axs[0].plot(range(1,len(scores)+1),np.minimum.accumulate(scores),label='Best so far')
     axs[0].set(xlabel='GP trial',ylabel='Validation MSE',yscale='log');axs[0].legend(frameon=False)
@@ -205,8 +202,14 @@ def main(overleaf=None):
         axs[1].scatter([budget]*len(rr),[r['result']['validation']['mse'] for r in rr],alpha=.7,s=16)
     axs[1].set(xlabel='Hyperband epochs',ylabel='Validation MSE',yscale='log',xscale='log',xticks=[1,3,9,27],xticklabels=[1,3,9,27]);save(fig,'search')
     search_rows=[]
-    for key,label in [('bayesian_best_mse','GP, MSE'),('bayesian_best_accuracy','GP, accuracy'),('hyperband_best_full_budget','Hyperband')]:
-        r=summary[key]['result'];c=r['config']
+    choices = [
+        ('GP, MSE', min(gp, key=lambda r:r['result']['validation']['mse'])),
+        ('GP, accuracy', max(gp, key=lambda r:r['result']['validation']['accuracy'])),
+        ('Hyperband', min((r for r in hb if r['result']['config']['epochs']==27),
+                          key=lambda r:r['result']['validation']['mse'])),
+    ]
+    for label, row in choices:
+        r=row['result'];c=r['config']
         search_rows.append([label,c['depth'],f"{c['lr']:g}",c['loss'],c['optimizer'],f"{r['validation']['mse']:.4f}",f"{100*r['validation']['accuracy']:.2f}"])
     table('search','Search results','tab:search',['Selection','$L$','$\\eta$','Loss','Optimizer','MSE','Acc. (\\%)'],search_rows, 'lrrllrr')
     # Main model comparison and uncertainty across initializations.
@@ -227,7 +230,7 @@ def main(overleaf=None):
         for r in rr:flat.append({'model':label,'seed':r['config']['seed'],**r['test'],'validation_mse':r['validation']['mse'],'lr':r['config']['lr']})
     for name,label in [('MLP_softmax','MLP, softmax'),('Logistic','Logistic'),('Fourier','Fourier logits'),('Trees','Boosted trees')]:
         rr=[r for r in classical if r['method']==name]
-        comp_rows.append([label,rr[0]['parameter_count'] or 'tree ensemble',mean_sd([r['test_accuracy'] for r in rr],True),f"{np.mean([r['test_mse'] for r in rr]):.4f}"])
+        comp_rows.append([label,rr[0].get('parameter_count') or 'tree ensemble',mean_sd([r['test_accuracy'] for r in rr],True),f"{np.mean([r['test_mse'] for r in rr]):.4f}"])
     table('comparison','Classifier comparison','tab:comparison',['Model','$P$','Test accuracy (\\%)','MSE'],comp_rows)
     pd.DataFrame(flat).to_csv(ROOT/'results/comparison.csv',index=False)
     axs[0].set(xlabel='Epoch',ylabel='Validation MSE',yscale='log');axs[1].set(xlabel='Epoch',ylabel='Validation accuracy');axs[1].legend(frameon=False,loc='lower right');save(fig,'comparison')
@@ -262,20 +265,23 @@ def main(overleaf=None):
             classes=np.where(counts<=low,-1,np.where(counts>high,1,0))
             acc.append(np.mean(classes==d['y_test']))
         shot_rows.append({'shots':shots,'expected_accuracy':float(correct.mean()),'mc_mean':float(np.mean(acc)),'mc_sd':float(np.std(acc,ddof=1))})
-    (ROOT/'results/shots.json').write_text(json.dumps({'run_id':qr['id'],'exact_accuracy':float(np.mean(classify(pred)==d['y_test'])),'model':'ideal independent measurement counts, no device noise','repetitions':200,'rows':shot_rows},indent=2))
+    exact_accuracy = float(np.mean(classify(pred)==d['y_test']))
+    write_rows(ROOT/'results/shots.csv',
+               (dict(row, run_id=qr['id'], exact_accuracy=exact_accuracy, repetitions=200,
+                     model='ideal independent measurement counts, no device noise') for row in shot_rows))
     fig,axs=plt.subplots(1,2,figsize=(8,2.8));axs[0].errorbar([r['shots'] for r in shot_rows],[r['mc_mean'] for r in shot_rows],yerr=[r['mc_sd'] for r in shot_rows],fmt='o-',capsize=3)
     axs[0].axhline(np.mean(classify(pred)==d['y_test']),color='gray',ls=':',label='Exact');axs[0].set(xlabel='Shots',ylabel='Accuracy',xscale='log');axs[0].legend(frameon=False)
     margin=np.minimum(abs(pred-.33),abs(pred+.33));axs[1].hist(margin,bins=35,color=COLORS[0]);axs[1].set(xlabel='Distance to nearest threshold',ylabel='Events');save(fig,'shots')
     # Runtime uses separate serial measurements.
-    runtime=json.loads((ROOT/'results/runtime.json').read_text());rt=[]
+    runtime=read_rows(ROOT/'results/runtime.csv');rt=[]
     for name in ['QRU4','QRU10','VQC10','MLP10']:
-        rr=[r for r in runtime['runs'] if r['model']==name]
+        rr=[r for r in runtime if r['model']==name]
         assert len(rr)==3,'Runtime benchmark incomplete'
         rt.append([name,f"{np.median([r['train_seconds'] for r in rr]):.3f}",f"{1000*np.median([r['inference_seconds'] for r in rr]):.3f}"])
     table('runtime','Serial runtime','tab:runtime',['Model','Training (s)','2926 predictions (ms)'],rt)
-    depth_runtime=ROOT/'results/runtime_depth.json'
+    depth_runtime=ROOT/'results/runtime_depth.csv'
     if depth_runtime.exists():
-        depth_rows=json.loads(depth_runtime.read_text())['runs']
+        depth_rows=read_rows(depth_runtime)
         fig,axs=plt.subplots(1,2,figsize=(8,2.8))
         for ax,key,scale,label in zip(axs,['train_seconds','inference_seconds'],[1,1000],
                                      ['Training (s)','2,926 predictions (ms)']):
@@ -285,9 +291,9 @@ def main(overleaf=None):
                         fmt='o-',capsize=3)
             ax.set(xlabel='Reuploading depth',ylabel=label,xticks=dep)
         save(fig,'runtime_depth')
-    initializations=ROOT/'results/initializations.json'
+    initializations=ROOT/'results/initializations.csv'
     if initializations.exists():
-        rr=json.loads(initializations.read_text())['runs']
+        rr=read_rows(initializations)
         fig,axs=plt.subplots(1,2,figsize=(8,2.8))
         for ax,key,scale,label in zip(axs,['accuracy','mse'],[100,1],['Test accuracy (%)','Test MSE']):
             values=np.array([scale*r['test'][key] for r in rr])
@@ -297,7 +303,9 @@ def main(overleaf=None):
         axs[0].legend(frameon=False)
         save(fig,'initializations')
     stats['classical']={name:float(np.mean([r['test_accuracy'] for r in classical if r['method']==name])) for name in ['Logistic','Fourier','Trees','MLP_softmax']}
-    (ROOT/'results/summary.json').write_text(json.dumps(stats,indent=2))
+    write_rows(ROOT/'results/summary.csv',
+               [dict(model=name, **row) for name,row in stats.items() if name!='classical']
+               + [dict(model=name, accuracy=accuracy) for name,accuracy in stats['classical'].items()])
     macros=[]
     for key,values in [('QRUFour',stats['QRU4']),('QRUTen',stats['QRU10']),('VQC',stats['VQC10']),('MLP',stats['MLP10'])]:
         macros.append(f'\\newcommand{{\\{key}Acc}}{{{100*values["accuracy"]:.2f}}}')
@@ -317,9 +325,7 @@ def main(overleaf=None):
                 a=np.load(f)
                 for key in a.files:
                     if key in ['theta','prediction']:weights[r['id']+'_'+key]=a[key]
-    archive_tmp=ROOT/'results'/f'runs.{os.getpid()}.tmp.gz'
-    with gzip.open(archive_tmp,'wt') as f:json.dump(all_rows,f)
-    archive_tmp.replace(ROOT/'results/runs.json.gz')
+    write_runs(ROOT/'results/runs.csv', ROOT/'results/training_curves.csv.gz', all_rows)
     weights_tmp=ROOT/'results'/f'models.{os.getpid()}.tmp.npz'
     np.savez_compressed(weights_tmp,**weights)
     weights_tmp.replace(ROOT/'results/models.npz')
@@ -327,7 +333,7 @@ def main(overleaf=None):
         out=Path(overleaf);(out/'Images').mkdir(exist_ok=True);(out/'tables').mkdir(exist_ok=True)
         for p in FIG.glob('*.pdf'):shutil.copy2(p,out/'Images'/p.name)
         for p in TAB.glob('*.tex'):shutil.copy2(p,out/'tables'/p.name)
-    print(json.dumps(stats,indent=2))
+    print((ROOT/'results/summary.csv').read_text().rstrip())
 
 
 if __name__=='__main__':

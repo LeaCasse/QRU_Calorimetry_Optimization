@@ -3,7 +3,6 @@ import argparse
 import os
 for k in ['OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS']: os.environ[k]='1'
 from pathlib import Path
-import json
 import platform
 import sys
 import time
@@ -13,6 +12,7 @@ import scipy
 import sklearn
 from qru.data import ROOT,load_data
 from qru.train import make_model,fit
+from csv_results import read_rows, write_rows
 
 
 def main(depth_sweep=False):
@@ -20,10 +20,12 @@ def main(depth_sweep=False):
     if depth_sweep:
         selected = {f'QRU{depth}': {'kind': 'QRU', 'depth': depth, 'lr': .003}
                     for depth in [1, 2, 3, 4, 6, 10, 14]}
-        output = ROOT/'results/runtime_depth.json'
+        output = ROOT/'results/runtime_depth.csv'
     else:
-        selected = json.loads((ROOT/'results/selected.json').read_text())
-        output = ROOT/'results/runtime.json'
+        selected = {}
+        for row in read_rows(ROOT/'results/selected.csv'):
+            selected[row.pop('model')] = row
+        output = ROOT/'results/runtime.csv'
     rows=[]
     for name,c in selected.items():
         m=make_model(**c)
@@ -36,10 +38,11 @@ def main(depth_sweep=False):
             rows.append({'model':name,'seed':seed,'train_seconds':info['seconds'],
                          'inference_seconds':float(np.median(timings)),'events':len(d['x_test'])})
             print(rows[-1],flush=True)
-    output.write_text(json.dumps({'runs':rows,'python':platform.python_version(),
-        'numpy':np.__version__,'scipy':scipy.__version__,'sklearn':sklearn.__version__,
-        'platform':platform.platform(),'threads':1,'epochs':50,
-        'timing':'serial, full training and validation each epoch, data loading excluded'},indent=2)+'\n')
+    metadata = {'python':platform.python_version(), 'numpy':np.__version__,
+                'scipy':scipy.__version__, 'sklearn':sklearn.__version__,
+                'platform':platform.platform(), 'threads':1, 'epochs':50,
+                'timing':'serial, full training and validation each epoch, data loading excluded'}
+    write_rows(output, (dict(row, **metadata) for row in rows))
 
 
 if __name__=='__main__':

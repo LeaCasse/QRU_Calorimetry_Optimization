@@ -1,13 +1,13 @@
 """Export a frozen revised QRU to OpenQASM 2. This script submits no jobs."""
 import argparse
 from pathlib import Path
-import json
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 import numpy as np
 from qru.data import load_data, ROOT
 from qru.train import make_model
 from qru.models import classify
+from csv_results import cache_paths, read_runs, write_rows
 
 
 def qasm(model, theta, x):
@@ -28,15 +28,15 @@ def from_counts(counts):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(); parser.add_argument('run_id'); parser.add_argument('--count', type=int, default=10)
     parser.add_argument('--output', default='inference_export'); args = parser.parse_args()
-    cached = ROOT/'results/comparison'/f'{args.run_id}.json'
+    cached, curve = cache_paths('comparison', args.run_id)
     if cached.exists():
-        row = json.loads(cached.read_text())
-        theta = np.load(ROOT/'results/comparison'/f'{args.run_id}.npz')['theta']
+        row = read_runs(cached, curve)[0]
+        with np.load(cached.with_suffix('.npz')) as arrays:
+            theta = arrays['theta']
     else:
-        import gzip
-        with gzip.open(ROOT/'results/runs.json.gz','rt') as f:
-            row = next(r for r in json.load(f) if r['id']==args.run_id)
-        theta = np.load(ROOT/'results/models.npz')[args.run_id+'_theta']
+        row = next(r for r in read_runs() if r['id']==args.run_id)
+        with np.load(ROOT/'results/models.npz') as arrays:
+            theta = arrays[args.run_id+'_theta']
     config = row['config']
     if config['kind'] != 'QRU': raise ValueError('Select a QRU run')
     d = load_data(); model = make_model(**config)
@@ -44,6 +44,12 @@ if __name__ == '__main__':
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     for i, value in enumerate(x): (out/f'event_{i:04d}.qasm').write_text(qasm(model, theta, value))
     ref = model.forward(theta, x)
-    (out/'reference.json').write_text(json.dumps({'run_id':args.run_id,'config':config,
-        'expectation':ref.tolist(),'prediction':classify(ref).tolist(),'label':d['y_test'][:args.count].tolist(),
-        'input':x.tolist(),'theta':theta.tolist(),'hardware_submitted':False},indent=2))
+    write_rows(out/'reference.csv',
+               (dict(event=i, x1=features[0], x2=features[1], x3=features[2],
+                     expectation=score, prediction=label, target=target)
+                for i,(features,score,label,target) in
+                enumerate(zip(x,ref,classify(ref),d['y_test'][:args.count]))))
+    write_rows(out/'parameters.csv',
+               (dict(parameter=i, value=value) for i,value in enumerate(theta)))
+    write_rows(out/'configuration.csv',
+               [dict(run_id=args.run_id, hardware_submitted=False, **config)])

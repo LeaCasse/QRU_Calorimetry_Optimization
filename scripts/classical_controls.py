@@ -2,12 +2,12 @@
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'; os.environ['OMP_NUM_THREADS'] = '1'
 from pathlib import Path
-import json
 import sys
 import time
 import warnings
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 import numpy as np
+from csv_results import write_rows
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
@@ -52,7 +52,7 @@ def main():
                          'parameter_count':87 if name=='MLP_softmax' else (84 if name=='Fourier' else (12 if name=='Logistic' else None))})
             predictions[f'{name}_{seed}_prediction']=pred;predictions[f'{name}_{seed}_probability']=pt
             print(name,seed,rows[-1]['test_accuracy'],flush=True)
-        (ROOT/'results/classical.json').write_text(json.dumps(rows,indent=2))
+        write_rows(ROOT/'results/classical.csv', rows)
     np.savez_compressed(ROOT/'results/classical_predictions.npz',**predictions)
 
 

@@ -1,0 +1,11 @@
+metric,value
+source_commit,6020df5802e36a7786fbc1091efcb37b704bea41
+source_base_url,https://raw.githubusercontent.com/LeaCasse/QRU_Calorimetry_Optimization/6020df5802e36a7786fbc1091efcb37b704bea41/Dataset/
+features,"meanz, shower_length, energ_ecal"
+feature_semantics,Stored headers only. Physical definitions and units are unverified.
+labels,"-1, 0, 1"
+particle_label_mapping,Unverified in supplied files
+loader_train_count,26334
+loader_test_count,2926
+spreadsheet_numeric_rows,29261
+max_reconstruction_distance,7.281976747555669e-07
