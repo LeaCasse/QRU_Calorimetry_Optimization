@@ -135,8 +135,11 @@ def main(overleaf=None):
     for ax,axes in zip(axs,['XYX','XYZ']):
         m=QRU(4,dimensions=1,axes=axes)
         for p in params:ax.plot(u,m.forward(p,u[:,None]),lw=1)
-        ax.set(ylabel=r'$\langle Z\rangle$',title=axes,ylim=(-1.05,1.05))
-    axs[-1].set_xlabel('Input angle');save(fig,'templates')
+        ax.set_ylim(-1.05,1.05)
+        ax.set_ylabel(r'$\langle Z\rangle$',fontsize=13)
+        ax.set_title(axes,fontsize=13)
+        ax.tick_params(labelsize=12)
+    axs[-1].set_xlabel('Input angle',fontsize=13);save(fig,'templates')
     # Each point is evaluated after a completed epoch, on two update scales.
     fig,axs=plt.subplots(1,2,figsize=(8,3));batch_rows=[]
     for b in [1,5,20,100,256,'full']:

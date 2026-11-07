@@ -57,13 +57,14 @@ def main(overleaf=None):
     depths = [1, 2, 3, 4, 6, 10, 14]
     for metric, label, key in (("val_mse", "Validation MSE", "mse"),
                                 ("val_accuracy", "Validation accuracy", "accuracy")):
-        fig, ax = plt.subplots(figsize=(7, 2.9))
+        fig, ax = plt.subplots(figsize=(7, 3.15))
         for depth in depths:
             curves(ax, group("depth", "depth", depth), metric, str(depth))
         ax.set(xlabel="Completed epochs", ylabel=label)
         if key == "mse":
             ax.set_yscale("log")
-        ax.legend(title="Depth", ncol=2, frameon=False)
+        ax.legend(title="Depth", loc="lower center", bbox_to_anchor=(.5, 1.02),
+                  ncol=len(depths), frameon=False, fontsize=10, title_fontsize=10)
         save(fig, f"paper_depth_{key}")
 
     timing = read_result("runtime_depth")["runs"]
